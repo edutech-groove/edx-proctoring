@@ -4,7 +4,6 @@
     </span>
 </span>
 <% var is_allowances = proctored_exam_allowances.length !== 0 %>
-<% if (is_allowances) { %>
 
 <div class="wrapper-content wrapper">
    <section class="content exam-allowances-content">
@@ -20,39 +19,51 @@
             </tr>
          </thead>
          <tbody>
-            <% _.each(proctored_exam_allowances, function(proctored_exam_allowance){ %>
-                <tr class="allowance-items">
-                    <td>
-                      <%- proctored_exam_allowance.proctored_exam.exam_name %>
-                    </td>
-                    <% if (proctored_exam_allowance.user){ %>
-                    <td>
-                      <%= proctored_exam_allowance.user.username %>
+            <% if (is_allowances) { %>
+               <% _.each(proctored_exam_allowances, function(proctored_exam_allowance){ %>
+                  <tr class="allowance-items">
+                     <td>
+                        <%- proctored_exam_allowance.proctored_exam.exam_name %>
                      </td>
-                    <td>
-                      <%= proctored_exam_allowance.user.email %>
-                    </td>
-                    <% }else{ %>
-                        <td>N/A</td>
-                        <td>N/A</td>
-                    <% } %>
-                    <td>
-                      <%= proctored_exam_allowance.key_display_name %>
-                    </td>
-                   <td>
-                      <%- proctored_exam_allowance.value %></td>
-                   <td>
-                   <a data-exam-id="<%= proctored_exam_allowance.proctored_exam.id %>"
-                    data-key-name="<%= proctored_exam_allowance.key %>"
-                    data-user-id="<%= proctored_exam_allowance.user.id %>"
-                   class="remove_allowance" href="#">[x]</a>
-                   </td>
-                </tr>
-            <% }); %>
+                     <% if (proctored_exam_allowance.user){ %>
+                     <td>
+                        <%= proctored_exam_allowance.user.username %>
+                        </td>
+                     <td>
+                        <%= proctored_exam_allowance.user.email %>
+                     </td>
+                     <% }else{ %>
+                           <td>N/A</td>
+                           <td>N/A</td>
+                     <% } %>
+                     <td>
+                        <%= proctored_exam_allowance.key_display_name %>
+                     </td>
+                     <td>
+                        <%- proctored_exam_allowance.value %></td>
+                     <td>
+                     <a data-exam-id="<%= proctored_exam_allowance.proctored_exam.id %>"
+                     data-key-name="<%= proctored_exam_allowance.key %>"
+                     data-user-id="<%= proctored_exam_allowance.user.id %>"
+                     class="remove_allowance" href="#">
+                        <div class="btn-content">
+                           <svg width="12" height="12" class="settings">
+                              <use xlink:href="#trash"></use>
+                           </svg>
+                           Delete
+                        </div>
+                     </a>
+                     </td>
+                  </tr>
+               <% }); %>
+            <% } else { %>
+               <tr>
+                  <td colspan="6">No results found.</td>
+               </tr>
+            <% } %>
          </tbody>
       </table>
    </section>
 </div>
-<% } %>
 
 
