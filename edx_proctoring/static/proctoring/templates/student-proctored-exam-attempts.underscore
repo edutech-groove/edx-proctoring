@@ -8,73 +8,16 @@
                         value="<%= searchText %>"
                     <%} %>
                     />
-                    <span class="search"><span class="icon fa fa-search" aria-hidden="true"></span></span>
-                    <span class="clear-search"><span class="icon fa fa-remove" aria-hidden="true"></span></span>
+                    <span class="search">
+                        <svg class="iconSVG">
+                            <use xlink:href="#search-icon"></use>
+                        </svg>
+                    </span>
                 </div>
-                <ul class="pagination">
-                    <% if (!pagination_info.has_previous){ %>
-                    <li class="disabled">
-                    <a aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
-                        </a>
-                    </li>
-                    <% } else { %>
-                    <li>
-                        <a class="target-link " data-target-url="
-                         <%- interpolate(
-                        '%(attempt_url)s?page=%(count)s ',
-                            {
-                                attempt_url: attempt_url,
-                                count: pagination_info.current_page - 1
-                            },
-                            true
-                        ) %> "
-                        href="#" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
-                        </a>
-                    </li>
-                    <% }%>
-                    <% for(var n = start_page; n <= end_page; n++) { %>
-                        <li>
-                            <a class="target-link <% if (pagination_info.current_page == n){ %> active <% } %>"
-                            data-target-url="
-                                <%- interpolate(
-                                    '%(attempt_url)s?page=%(count)s ',
-                                        {
-                                            attempt_url: attempt_url,
-                                            count: n
-                                        },
-                                    true
-                                ) %>
-                                "
-                            href="#"><%= n %>
-                            </a>
-                        </li>
-                    <% } %>
-                    <% if (!pagination_info.has_next){ %>
-                    <li class="disabled">
-                    <a aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
-                      </a>
-                    </li>
-                    <% } else { %>
-                    <li>
-                    <a class="target-link" href="#" aria-label="Next" data-target-url="
-                    <%- interpolate(
-                        '%(attempt_url)s?page=%(count)s ',
-                            {
-                                attempt_url: attempt_url,
-                                count: pagination_info.current_page + 1
-                            },
-                        true
-                    ) %> "
-                    >
-                      <span aria-hidden="true">&raquo;</span>
-                    </a>
-                    </li>
-                    <% }%>
-                </ul>
-                <div class="clearfix"></div>
+                <div class="pagination grv-paging">
+                    <ul>
+                    </ul>
+                </div>
             </div>
             <table class="exam-attempts-table">
                 <thead>
@@ -89,42 +32,132 @@
                         <th class="c_action"><%- gettext("Actions") %> </th>
                     </tr>
                 </thead>
-                <% if (is_proctored_attempts) { %>
                 <tbody>
-                    <% _.each(proctored_exam_attempts, function(proctored_exam_attempt){ %>
-                        <tr class="allowance-items">
-                            <td>
-                                <%- interpolate(gettext(' %(username)s '), { username: proctored_exam_attempt.user.username }, true) %>
-                            </td>
-                            <td>
-                                <%- interpolate(gettext(' %(exam_display_name)s '), { exam_display_name: proctored_exam_attempt.proctored_exam.exam_name }, true) %>
-                            </td>
-                            <td> <%= proctored_exam_attempt.allowed_time_limit_mins %></td>
-                            <td> <%= proctored_exam_attempt.exam_attempt_type %></td>
-                            <td> <%= getDateFormat(proctored_exam_attempt.started_at) %></td>
-                            <td> <%= getDateFormat(proctored_exam_attempt.completed_at) %></td>
-                             <td>
-                             <% if (proctored_exam_attempt.status){ %>
-                                <%= getExamAttemptStatus(proctored_exam_attempt.status) %>
-                            <% } else { %>
-                                N/A
-                            <% } %>
-                            </td>
-                            <td>
-                             <% if (proctored_exam_attempt.status){ %>
-                                <a href="#" class="remove-attempt" data-attempt-id="<%= proctored_exam_attempt.id %>" >[x]</a>
-                            </td>
-                            <% } else { %>
-                                N/A
-                            <% } %>
+                    <% if (is_proctored_attempts) { %>
+                        <% _.each(proctored_exam_attempts, function(proctored_exam_attempt){ %>
+                            <tr class="allowance-items">
+                                <td>
+                                    <%- interpolate(gettext(' %(username)s '), { username: proctored_exam_attempt.user.username }, true) %>
+                                </td>
+                                <td>
+                                    <%- interpolate(gettext(' %(exam_display_name)s '), { exam_display_name: proctored_exam_attempt.proctored_exam.exam_name }, true) %>
+                                </td>
+                                <td> <%= proctored_exam_attempt.allowed_time_limit_mins %></td>
+                                <td> <%= proctored_exam_attempt.exam_attempt_type %></td>
+                                <td> <%= getDateFormat(proctored_exam_attempt.started_at) %></td>
+                                <td> <%= getDateFormat(proctored_exam_attempt.completed_at) %></td>
+                                <td>
+                                <% if (proctored_exam_attempt.status){ %>
+                                    <span class="exam-attempt-status <%=proctored_exam_attempt.status%>"><%= getExamAttemptStatus(proctored_exam_attempt.status) %></span>
+                                <% } else { %>
+                                    <span class="exam-attempt-status">N/A</span>
+                                <% } %>
+                                </td>
+                                <td>
+                                <% if (proctored_exam_attempt.status){ %>
+                                    <a href="#" class="remove-attempt" data-attempt-id="<%= proctored_exam_attempt.id %>" >
+                                        <div class="btn-content">
+                                            <svg width="12" height="12" class="settings">
+                                            <use xlink:href="#trash"></use>
+                                            </svg>
+                                            Delete
+                                        </div>
+                                    </a>
+                                </td>
+                                <% } else { %>
+                                    N/A
+                                <% } %>
+                            </tr>
+                        <% }); %>
+                    <% } %>
+                    <% if (!is_proctored_attempts) { %>
+                        <tr>
+                            <td colspan="8">No exam results found.</td>
                         </tr>
-                    <% }); %>
+                    <% } %>
                 </tbody>
-                <% } %>
             </table>
-            <% if (!is_proctored_attempts) { %>
-                <p> No exam results found. </p>
-            <% } %>
 
         </section>
 </div>
+
+<script>
+  var currentPage = <%= pagination_info.current_page %>;
+  var totalPages = <%= pagination_info.total_pages %>;
+  var numOfDisplayPages = 5;
+  var startPage = 1;
+
+  $(document).ready(function() {
+    if (totalPages < numOfDisplayPages) {
+      numOfDisplayPages = totalPages;
+    }
+    getStartPage();
+    generate();
+  });
+
+  function generate() {
+    if (currentPage < startPage || currentPage > startPage + numOfDisplayPages - 1) {
+      window.location.href = `${window.location.origin}${window.location.pathname}?page=${startPage}`;
+    } else {
+      var res = `
+      <li>
+        <button type="button" ${startPage <= 1 ? 'disabled' : ''} onclick="onPrev();">
+          <svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">
+            <path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-6.843 -6.196)"/>
+            <path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-11.246 -6.196)"/>
+          </svg>
+        </button>
+      </li>`;
+      for (let pc = startPage; pc < (startPage + numOfDisplayPages); pc++) {
+        res += `<li class="${pc == currentPage ? 'active' : ''}"><a class="target-link" data-target-url="<%= attempt_url %>?page=${pc}" href="#">${pc}</a></li>`;
+      }
+      res += `
+      <li>
+        <button type="button" ${startPage + numOfDisplayPages > totalPages ? 'disabled' : ''} onclick="onNext();">
+          <svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">
+            <path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-11.246 -6.196)"/>
+            <path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-6.843 -6.196)"/>
+          </svg>
+        </button>
+      </li>`;
+
+      $('.pagination.grv-paging ul').empty().append(res);
+    }
+  }
+
+  function onNext() {
+    var newStartPage = startPage + numOfDisplayPages;
+    if (newStartPage + numOfDisplayPages - 1 <= totalPages) {
+      startPage = newStartPage;
+    } else {
+      startPage = totalPages - numOfDisplayPages + 1;
+    }
+    generate();
+  }
+
+  function onPrev() {
+    var newStartPage = startPage - numOfDisplayPages;
+    if (newStartPage >= 1) {
+      startPage = newStartPage;
+    } else {
+      startPage = 1;
+    }
+    generate();
+  }
+
+  function getStartPage() {
+    var offsetLeft = currentPage - 1;
+    var offsetRight = totalPages - currentPage;
+    var requiredOffset = (numOfDisplayPages - 1) / 2;
+    var endPage = 0;
+
+    if (offsetRight < requiredOffset) {
+      endPage = currentPage + offsetRight;
+      startPage = endPage - numOfDisplayPages + 1;
+    } else if (offsetLeft < requiredOffset) {
+      startPage = currentPage - offsetLeft;
+    } else {
+      startPage = Math.ceil(currentPage - requiredOffset);
+    }
+  }
+</script>
