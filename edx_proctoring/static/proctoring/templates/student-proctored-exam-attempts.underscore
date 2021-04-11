@@ -97,29 +97,29 @@
 
   function generate() {
     if (currentPage < startPage || currentPage > startPage + numOfDisplayPages - 1) {
-      window.location.href = `${window.location.origin}${window.location.pathname}?page=${startPage}`;
+      window.location.href = '${window.location.origin}${window.location.pathname}?page=${startPage}';
     } else {
-      var res = `
-      <li>
-        <button type="button" ${startPage <= 1 ? 'disabled' : ''} onclick="onPrev();">
-          <svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">
-            <path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-6.843 -6.196)"/>
-            <path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-11.246 -6.196)"/>
-          </svg>
-        </button>
-      </li>`;
+      var res = 
+      '<li>' +
+        '<button type="button" ${startPage <= 1 ? "disabled" : ""} onclick="onPrev();">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">' +
+            '<path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-6.843 -6.196)"/>' +
+            '<path d="M12.855,10.861l3.532-3.529a.664.664,0,0,0,0-.942.673.673,0,0,0-.945,0l-4,4a.666.666,0,0,0-.019.92l4.018,4.027a.667.667,0,1,0,.945-.942Z" transform="translate(-11.246 -6.196)"/>' +
+          '</svg>' +
+        '</button>' +
+      '</li>';
       for (let pc = startPage; pc < (startPage + numOfDisplayPages); pc++) {
-        res += `<li class="${pc == currentPage ? 'active' : ''}"><a class="target-link" data-target-url="<%= attempt_url %>?page=${pc}" href="#">${pc}</a></li>`;
+        res += '<li class="${pc == currentPage ? "active" : ""}"><a class="target-link" data-target-url="<%= attempt_url %>?page=${pc}" href="#">${pc}</a></li>';
       }
-      res += `
-      <li>
-        <button type="button" ${startPage + numOfDisplayPages > totalPages ? 'disabled' : ''} onclick="onNext();">
-          <svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">
-            <path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-11.246 -6.196)"/>
-            <path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-6.843 -6.196)"/>
-          </svg>
-        </button>
-      </li>`;
+      res +=
+      '<li>' +
+        '<button type="button" ${startPage + numOfDisplayPages > totalPages ? "disabled" : ""} onclick="onNext();">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="9.74" height="9.333" viewBox="0 0 9.74 9.333">' +
+            '<path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-11.246 -6.196)"/>' +
+            '<path d="M14.974,10.861,11.442,7.332a.664.664,0,0,1,0-.942.673.673,0,0,1,.945,0l4,4a.666.666,0,0,1,.019.92L12.39,15.335a.667.667,0,0,1-.945-.942Z" transform="translate(-6.843 -6.196)"/>' +
+          '</svg>' +
+        '</button>' +
+      '</li>';
 
       $('.pagination.grv-paging ul').empty().append(res);
     }
