@@ -1,5 +1,5 @@
 {
-  "name": "edutech-groove-proctoring",
+  "name": "edutech-proctoring",
   "//": "Be sure to update the version number in edx_proctoring/__init__.py",
   "//": "Note that the version format is slightly different than that of the Python version when using prereleases.",
   "version": "1.5.7",
