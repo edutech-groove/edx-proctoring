@@ -8,14 +8,13 @@
                         value="<%= searchText %>"
                     <%} %>
                     />
-                    <span class="search"><span class="icon fa fa-search" aria-hidden="true"></span></span>
-                    <span class="clear-search"><span class="icon fa fa-remove" aria-hidden="true"></span></span>
+                    <span class="search"><svg width="18" height="18"><use xlink:href="#magnifying-glass"></use></svg></span>
                 </div>
                 <ul class="pagination">
                     <% if (!pagination_info.has_previous){ %>
                     <li class="disabled">
-                    <a aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
+                        <a aria-label="Previous">
+                            <svg width="8" height="9"><use xlink:href="#paging-first-icon"></use></svg>
                         </a>
                     </li>
                     <% } else { %>
@@ -30,7 +29,7 @@
                             true
                         ) %> "
                         href="#" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
+                            <svg width="8" height="9"><use xlink:href="#paging-first-icon"></use></svg>
                         </a>
                     </li>
                     <% }%>
@@ -54,7 +53,7 @@
                     <% if (!pagination_info.has_next){ %>
                     <li class="disabled">
                     <a aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
+                        <svg width="8" height="9"><use xlink:href="#paging-last-icon"></use></svg>
                       </a>
                     </li>
                     <% } else { %>
@@ -69,7 +68,7 @@
                         true
                     ) %> "
                     >
-                      <span aria-hidden="true">&raquo;</span>
+                        <svg width="8" height="9"><use xlink:href="#paging-last-icon"></use></svg>
                     </a>
                     </li>
                     <% }%>
@@ -89,8 +88,8 @@
                         <th class="c_action"><%- gettext("Actions") %> </th>
                     </tr>
                 </thead>
-                <% if (is_proctored_attempts) { %>
                 <tbody>
+                <% if (is_proctored_attempts) { %>
                     <% _.each(proctored_exam_attempts, function(proctored_exam_attempt){ %>
                         <tr class="allowance-items">
                             <td>
@@ -119,12 +118,12 @@
                             <% } %>
                         </tr>
                     <% }); %>
-                </tbody>
                 <% } %>
+                <% if (!is_proctored_attempts) { %>
+                    <tr><td colspan="8">No exam results found.</td></tr>
+                <% } %>
+                </tbody>
             </table>
-            <% if (!is_proctored_attempts) { %>
-                <p> No exam results found. </p>
-            <% } %>
 
         </section>
 </div>
