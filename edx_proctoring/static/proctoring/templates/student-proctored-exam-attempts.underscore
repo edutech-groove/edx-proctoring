@@ -73,7 +73,6 @@
                     </li>
                     <% }%>
                 </ul>
-                <div class="clearfix"></div>
             </div>
             <table class="exam-attempts-table">
                 <thead>

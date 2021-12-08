@@ -35,60 +35,14 @@ var edx = edx || {};
                     self.template = _.template(template_data);
                     self.render();
                     self.showModal();
-                    self.updateCss();
                     self.selectExamAtIndex(0);
+
+                    setTimeout(function() {
+                        if (window.CustomizeFunctionsHook && window.CustomizeFunctionsHook['dropdown'] && typeof CustomizeFunctionsHook['dropdown'] === 'function') {
+                            window.CustomizeFunctionsHook.dropdown();
+                        }
+                    });
                 });
-        },
-        updateCss: function() {
-            var $el = $(this.el);
-            $el.find('.modal-header').css({
-                "color": "#1580b0",
-                "font-size": "20px",
-                "font-weight": "600",
-                "line-height": "normal",
-                "padding": "10px 15px",
-                "border-bottom": "1px solid #ccc"
-            });
-            $el.find('form').css({
-                "padding": "15px"
-            });
-            $el.find('form table.compact td').css({
-                "vertical-align": "middle",
-                "padding": "4px 8px"
-            });
-            $el.find('form label').css({
-                "display": "block",
-                "font-size": "14px",
-                "margin": 0,
-                "cursor": "default"
-            });
-            $el.find('form #minutes_label').css({
-                "display": "inline-block"
-            });
-            $el.find('form input[type="text"]').css({
-                "height": "26px",
-                "padding": "1px 8px 2px",
-                "font-size": "14px"
-            });
-            $el.find('form input[type="submit"]').css({
-                "margin-top": "10px",
-                "padding": "2px 32px"
-            });
-            $el.find('.error-message').css({
-                "color": "#ff0000",
-                "line-height": "normal",
-                "font-size": "14px"
-            });
-            $el.find('.error-response').css({
-                "color": "#ff0000",
-                "line-height": "normal",
-                "font-size": "14px",
-                "padding": "0px 10px 5px 7px"
-            });
-             $el.find('form select').css({
-                "padding": "2px 0px 2px 2px",
-                "font-size": "16px"
-            });
         },
         getCurrentFormValues: function () {
             return {
@@ -102,7 +56,7 @@ var edx = edx || {};
             var $element = view.$form[attr];
 
             $element.removeClass("error");
-            $element.parent().find(".error-message").empty();
+            $element.parent().parent().find(".error-message").empty();
         },
         showError: function (view, attr, errorMessage, selector) {
             var $element = view.$form[attr];
@@ -111,11 +65,10 @@ var edx = edx || {};
             var $errorMessage = $element.parent().find(".error-message");
             if ($errorMessage.length == 0) {
                 $errorMessage = $("<div class='error-message'></div>");
-                $element.parent().append($errorMessage);
+                $element.parent().parent().append($errorMessage);
             }
 
             $errorMessage.empty().append(errorMessage);
-            this.updateCss();
         },
         addAllowance: function (event) {
             event.preventDefault();
@@ -165,7 +118,7 @@ var edx = edx || {};
         selectExamAtIndex: function (index) {
             var selectedExam = this.proctored_exams[index];
 
-            if (selectedExam.is_proctored) {
+            if (selectedExam && selectedExam.is_proctored) {
                 // Selected Exam is a Proctored or Practice-Proctored exam.
                 if (selectedExam.is_practice_exam)
                     $('#exam_type_label').text(gettext('Practice Exam'));
