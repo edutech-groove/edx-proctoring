@@ -1,12 +1,10 @@
 <div class='modal-header'><%- gettext("Add a New Allowance") %></div>
 <form>
-    <h3 class='error-response'><h3>
-    <table class='compact'>
-        <tr>
-            <td>
-                <label><%- gettext("Special Exam") %></label>
-            </td>
-            <td>
+    <div class='error-response'></div>
+    <div class="fields">
+        <div class="field">
+            <label><%- gettext("Special Exam") %></label>
+            <div class="input-wrapper">
                 <select id='proctored_exam'>
                     <% _.each(proctored_exams, function(proctored_exam){ %>
                     <option value="<%= proctored_exam.id %>">
@@ -14,23 +12,20 @@
                     </option>
                     <% }); %>
                 </select>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <label><%- gettext("Exam Type") %></label>
-            </td>
-            <td>
-                <label id='exam_type_label'>
-                    <%- gettext("Timed Exam") %>
-                </label>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <label><%- gettext("Allowance Type") %></label>
-            </td>
-            <td>
+            </div>
+        </div>
+        <div class="field">
+            <label><%- gettext("Exam Type") %></label>
+            <p class="value" id='exam_type_label'>
+                <%- gettext("Timed Exam") %>
+            </p>
+        </div>
+        <div class="field">
+            <label id='exam_type_label'>
+                <%- gettext("Timed Exam") %>
+            </label>
+
+            <div class="input-wrapper">
                 <select id="allowance_type">
                     <% _.each(allowance_types, function(allowance_type){ %>
                     <option value="<%= allowance_type[0] %>">
@@ -38,34 +33,27 @@
                     </option>
                     <% }); %>
                 </select>
+            </div>
 
-                <label id='additional_time_label'>
-                    <%- gettext("Additional Time (minutes)") %>
-                </label>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <label id='allowance_value_label'><%- gettext("Value") %></label>
-            </td>
-            <td>
+            <p class="tip" id='additional_time_label'>
+                <%- gettext("Additional Time (minutes)") %>
+            </p>
+        </div>
+        <div class="field">
+            <label id='allowance_value_label'><%- gettext("Value") %></label>
+            <div class="input-wrapper">
                 <input type="text" id="allowance_value" />
                 <label id='minutes_label'><%- gettext("minutes") %></label>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <label><%- gettext("Username or Email") %></label>
-            </td>
-            <td>
+            </div>
+        </div>
+        <div class="field">
+            <label><%- gettext("Username or Email") %></label>
+            <div class="input-wrapper">
                 <input type="text" id="user_info" />
-            </td>
-        </tr>
-        <tr>
-            <td></td>
-            <td>
-                <input id='addNewAllowance' type='submit' value='Save' />
-            </td>
-        </tr>
-    </table>
+            </div
+        </div>
+    </div>
+    <div class="action">
+        <input id='addNewAllowance' type='submit' value='Save' />
+    </div>
 </form>
