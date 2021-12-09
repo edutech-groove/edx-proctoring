@@ -9,6 +9,7 @@ import logging
 import six
 import waffle
 
+from crum import get_current_request
 from django.conf import settings
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.urls import reverse, NoReverseMatch
@@ -71,7 +72,7 @@ from edx_proctoring.utils import (
     get_time_remaining_for_attempt,
     locate_attempt_by_attempt_code,
     humanized_time,
-    emit_event,
+    obscured_user_id,
 )
 
 ATTEMPTS_PER_PAGE = 25
@@ -794,7 +795,7 @@ class BaseReviewCallback(object):
     Base class for review callbacks.
     make_review handles saving reviews and review comments.
     """
-    def make_review(self, attempt, data, request=None, backend=None):
+    def make_review(self, attempt, data, backend=None):
         """
         Save the review and review comments
         """
@@ -840,12 +841,10 @@ class BaseReviewCallback(object):
         review.review_status = SoftwareSecureReviewStatus.from_standard_status.get(backend_review['status'])
 
         review.attempt_code = attempt_code
-        review.raw_data = json.dumps(backend_review)
+        review.raw_data = json.dumps(data)
         review.student_id = attempt['user']['id']
         review.exam_id = attempt['proctored_exam']['id']
-        # set reviewed_by to None because it was reviewed by our 3rd party
-        # service provider, not a user in our database
-        review.reviewed_by = None
+        review.reviewed_by = backend_review.get('reviewed_by', None)
 
         review.save()
 
@@ -861,21 +860,10 @@ class BaseReviewCallback(object):
             )
             comment.save()
 
-        # we could have gotten a review for an archived attempt
-        # this should *not* cause an update in our credit
-        # eligibility table
-        if review.review_status in SoftwareSecureReviewStatus.passing_statuses:
-            attempt_status = ProctoredExamStudentAttemptStatus.verified
-        elif not constants.REQUIRE_FAILURE_SECOND_REVIEWS:
-            attempt_status = ProctoredExamStudentAttemptStatus.rejected
-        else:
-            # if we are not allowed to store 'rejected' on this
-            # code path, then put status into 'second_review_required'
-            attempt_status = ProctoredExamStudentAttemptStatus.second_review_required
-
-        if review.review_status in SoftwareSecureReviewStatus.notify_support_for_status:
+        if review.should_notify:
             instructor_service = get_runtime_service('instructor')
-            if instructor_service:
+            request = get_current_request()
+            if instructor_service and request:
                 course_id = attempt['proctored_exam']['course_id']
                 exam_id = attempt['proctored_exam']['id']
                 review_url = request.build_absolute_uri(
@@ -891,24 +879,6 @@ class BaseReviewCallback(object):
                     review_url=review_url,
                 )
 
-        if not attempt.get('is_archived', False):
-            # updating attempt status will trigger workflow
-            # (i.e. updating credit eligibility table)
-            # archived attempts should not trigger the workflow
-            update_attempt_status(
-                attempt['proctored_exam']['id'],
-                attempt['user']['id'],
-                attempt_status,
-                raise_if_not_found=False
-            )
-
-        # emit an event for 'review_received'
-        data = {
-            'review_attempt_code': review.attempt_code,
-            'review_status': review.review_status,
-        }
-        emit_event(attempt['proctored_exam'], 'review_received', attempt=attempt, override_data=data)
-
 
 class ProctoredExamReviewCallback(ProctoredAPIView, BaseReviewCallback):
     """
@@ -922,7 +892,7 @@ class ProctoredExamReviewCallback(ProctoredAPIView, BaseReviewCallback):
         attempt = get_exam_attempt_by_external_id(external_id)
         if attempt is None:
             raise StudentExamAttemptDoesNotExistsException('not found')
-        self.make_review(attempt, request.data, request)
+        self.make_review(attempt, request.data)
         return Response(data='OK')
 
 
@@ -983,7 +953,6 @@ class AnonymousReviewCallback(BaseReviewCallback, APIView):
         serialized['is_archived'] = is_archived
         self.make_review(serialized,
                          request.data,
-                         request,
                          backend=provider)
         return Response('OK')
 
@@ -1000,12 +969,18 @@ class InstructorDashboard(AuthenticatedAPIView):
         exam = None
         attempt_id = None
         ext_exam_id = None
+        show_configuration_dashboard = False
+
         if exam_id:
             exam = get_exam_by_id(exam_id)
             # the exam_id in the url is our database id (for ease of lookups)
             # but the backend needs its external id for the instructor dashboard
             ext_exam_id = exam['external_id']
             attempt_id = request.GET.get('attempt', None)
+
+            # only show the configuration dashboard if an exam_id is passed in
+            show_configuration_dashboard = request.GET.get('config', '').lower() == 'true'
+
         else:
             found_backend = None
             for exam in get_all_exams_for_course(course_id, True):
@@ -1026,11 +1001,18 @@ class InstructorDashboard(AuthenticatedAPIView):
             backend = get_backend_provider(exam)
             if backend:
                 user = {
-                    'id': request.user.id,
+                    'id': obscured_user_id(request.user.id, exam['backend']),
                     'full_name': request.user.get_full_name(),
                     'email': request.user.email
                 }
-                url = backend.get_instructor_url(exam['course_id'], user, exam_id=ext_exam_id, attempt_id=attempt_id)
+
+                url = backend.get_instructor_url(
+                    exam['course_id'],
+                    user,
+                    exam_id=ext_exam_id,
+                    attempt_id=attempt_id,
+                    show_configuration_dashboard=show_configuration_dashboard
+                )
                 if url:
                     return redirect(url)
                 else:

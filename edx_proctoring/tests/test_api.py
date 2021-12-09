@@ -50,6 +50,8 @@ from edx_proctoring.api import (
     _get_review_policy_by_exam_id,
     update_review_policy,
     remove_review_policy,
+    is_backend_dashboard_available,
+    get_exam_configuration_dashboard_url,
 )
 from edx_proctoring.exceptions import (
     ProctoredExamAlreadyExists,
@@ -137,7 +139,7 @@ class ProctoredExamApiTests(ProctoredExamTestCase):
         update_practice_exam = ProctoredExam.objects.get(id=updated_practice_exam_id)
 
         self.assertEqual(update_practice_exam.time_limit_mins, 31)
-        self.assertEqual(update_practice_exam.course_id, 'test_course')
+        self.assertEqual(update_practice_exam.course_id, self.course_id)
         self.assertEqual(update_practice_exam.content_id, 'test_content_id_practice')
         self.assertEqual(update_practice_exam.backend, 'null')
 
@@ -159,7 +161,7 @@ class ProctoredExamApiTests(ProctoredExamTestCase):
 
         self.assertEqual(update_proctored_exam.exam_name, 'Updated Exam Name')
         self.assertEqual(update_proctored_exam.time_limit_mins, 30)
-        self.assertEqual(update_proctored_exam.course_id, 'test_course')
+        self.assertEqual(update_proctored_exam.course_id, self.course_id)
         self.assertEqual(update_proctored_exam.content_id, 'test_content_id')
 
     def test_update_timed_exam(self):
@@ -173,6 +175,16 @@ class ProctoredExamApiTests(ProctoredExamTestCase):
         update_timed_exam = ProctoredExam.objects.get(id=updated_timed_exam_id)
 
         self.assertEqual(update_timed_exam.hide_after_due, True)
+
+    def test_switch_from_proctored_to_timed(self):
+        """
+        Test that switches an exam from proctored to timed.
+        The backend should be notified that the exam is inactive
+        """
+        proctored_exam = get_exam_by_id(self.proctored_exam_id)
+        update_exam(self.proctored_exam_id, is_proctored=False)
+        backend = get_backend_provider(proctored_exam)
+        self.assertEqual(backend.last_exam['is_active'], False)
 
     def test_update_non_existing_exam(self):
         """
@@ -1910,3 +1922,54 @@ class ProctoredExamApiTests(ProctoredExamTestCase):
         # call to get_exam_violation_report did not fail. Assert that report is empty as
         # the only exam atempt was deleted.
         self.assertEqual(len(report), 0)
+
+    def test_dashboard_availability(self):
+        ProctoredExam.objects.filter(course_id=self.course_id).delete()
+        # no exams yet
+        self.assertFalse(is_backend_dashboard_available(self.course_id))
+        create_exam(
+            course_id=self.course_id,
+            content_id='test_content_1',
+            exam_name='test_exam',
+            time_limit_mins=60,
+            backend='null'
+        )
+        # backend with no dashboard
+        self.assertFalse(is_backend_dashboard_available(self.course_id))
+        create_exam(
+            course_id=self.course_id,
+            content_id='test_content_2',
+            exam_name='test_exam2',
+            time_limit_mins=60,
+            backend='test'
+        )
+        # backend with a dashboard
+        self.assertTrue(is_backend_dashboard_available(self.course_id))
+
+    def test_exam_configuration_dashboard_url(self):
+        # test if exam doesn't exist
+        ProctoredExam.objects.filter(course_id=self.course_id).delete()
+        self.assertEqual(get_exam_configuration_dashboard_url(self.course_id, 'test_content_1'), None)
+
+        # test if exam dashboard is not available
+        create_exam(
+            course_id=self.course_id,
+            content_id='test_content_1',
+            exam_name='test_exam',
+            time_limit_mins=60,
+            backend='null'
+        )
+        self.assertEqual(get_exam_configuration_dashboard_url(self.course_id, 'test_content_1'), None)
+
+        # test if exam exists and dashboard is available
+        create_exam(
+            course_id=self.course_id,
+            content_id='test_content_2',
+            exam_name='test_exam2',
+            time_limit_mins=60,
+            backend='test'
+        )
+        self.assertEqual(
+            get_exam_configuration_dashboard_url(self.course_id, 'test_content_2'),
+            '/edx_proctoring/v1/instructor/a/b/c/6?config=true'
+        )

@@ -41,6 +41,7 @@ class SoftwareSecureBackendProvider(ProctoringBackendProvider):
     RPNow product
     """
     verbose_name = u'RPNow'
+    passing_statuses = SoftwareSecureReviewStatus.passing_statuses
 
     def __init__(self, organization, exam_sponsor, exam_register_endpoint,
                  secret_key_id, secret_key, crypto_key, software_download_url,
@@ -112,6 +113,14 @@ class SoftwareSecureBackendProvider(ProctoringBackendProvider):
         """
         return None
 
+    def mark_erroneous_exam_attempt(self, exam, attempt):
+        """
+        Method that would be responsible for communicating with the
+        backend provider to mark a proctored session as having
+        encountered a technical error
+        """
+        return None
+
     def get_software_download_url(self):
         """
         Returns the URL that the user needs to go to in order to download
@@ -169,7 +178,8 @@ class SoftwareSecureBackendProvider(ProctoringBackendProvider):
         converted = {
             'status': review_status,
             'comments': comments,
-            'payload': payload
+            'payload': payload,
+            'reviewed_by': None,
         }
         return converted
 

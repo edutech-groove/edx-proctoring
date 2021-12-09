@@ -14,6 +14,10 @@ class ProctoringBackendProvider(six.with_metaclass(abc.ABCMeta)):
     """
     verbose_name = u'Unknown'
     ping_interval = constants.DEFAULT_DESKTOP_APPLICATION_PING_INTERVAL_SECONDS
+    tech_support_email = ''
+    tech_support_phone = ''
+    # whether this backend supports an instructor review/configuration dashboard
+    has_dashboard = False
 
     @abc.abstractmethod
     def register_exam_attempt(self, exam, context):
@@ -32,6 +36,14 @@ class ProctoringBackendProvider(six.with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def stop_exam_attempt(self, exam, attempt):
+        """
+        Method that is responsible for communicating with the backend provider
+        to establish a new proctored exam
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def mark_erroneous_exam_attempt(self, exam, attempt):
         """
         Method that is responsible for communicating with the backend provider
         to establish a new proctored exam
@@ -87,7 +99,7 @@ class ProctoringBackendProvider(six.with_metaclass(abc.ABCMeta)):
         return attempt
 
     # pylint: disable=unused-argument
-    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None):
+    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None, show_configuration_dashboard=False):
         """
         Returns the instructor dashboard url for reviews
         """

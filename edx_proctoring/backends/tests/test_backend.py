@@ -23,6 +23,7 @@ class TestBackendProvider(ProctoringBackendProvider):
     Implementation of the ProctoringBackendProvider that does nothing
     """
     last_exam = None
+    has_dashboard = True
 
     def register_exam_attempt(self, exam, context):
         """
@@ -44,6 +45,14 @@ class TestBackendProvider(ProctoringBackendProvider):
         """
         return None
 
+    def mark_erroneous_exam_attempt(self, exam, attempt):
+        """
+        Method that would be responsible for communicating with the
+        backend provider to mark a proctored session as having
+        encountered a technical error
+        """
+        return None
+
     def get_software_download_url(self):
         """
         Returns the URL that the user needs to go to in order to download
@@ -62,13 +71,17 @@ class TestBackendProvider(ProctoringBackendProvider):
         return exam.get('external_id', None) or 'externalid'
 
     # pylint: disable=unused-argument
-    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None):
+    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None, show_configuration_dashboard=False):
         "Return a fake instructor url"
         url = '/instructor/%s/' % course_id
         if exam_id:
             url += '?exam=%s' % exam_id
             if attempt_id:
                 url += '&attempt=%s' % attempt_id
+
+        if show_configuration_dashboard:
+            url += '&config=true'
+
         return url
 
 
@@ -102,6 +115,17 @@ class PassthroughBackendProvider(ProctoringBackendProvider):
         to establish a new proctored exam
         """
         return super(PassthroughBackendProvider, self).stop_exam_attempt(
+            exam,
+            attempt
+        )
+
+    def mark_erroneous_exam_attempt(self, exam, attempt):
+        """
+        Method that would be responsible for communicating with the
+        backend provider to mark a proctored session as having
+        encountered a technical error
+        """
+        return super(PassthroughBackendProvider, self).mark_erroneous_exam_attempt(
             exam,
             attempt
         )
@@ -151,6 +175,9 @@ class TestBackends(TestCase):
             provider.on_review_callback(None, None)
 
         with self.assertRaises(NotImplementedError):
+            provider.mark_erroneous_exam_attempt(None, None)
+
+        with self.assertRaises(NotImplementedError):
             provider.on_exam_saved(None)
 
         self.assertIsNone(provider.get_exam(None))
@@ -165,6 +192,7 @@ class TestBackends(TestCase):
         self.assertIsNone(provider.register_exam_attempt(None, None))
         self.assertIsNone(provider.start_exam_attempt(None, None))
         self.assertIsNone(provider.stop_exam_attempt(None, None))
+        self.assertIsNone(provider.mark_erroneous_exam_attempt(None, None))
         self.assertIsNone(provider.get_software_download_url())
         self.assertIsNone(provider.on_review_callback(None, None))
         self.assertIsNone(provider.on_exam_saved(None))
@@ -191,6 +219,7 @@ class TestBackends(TestCase):
         )
         self.assertIsNone(provider.start_exam_attempt(None, None))
         self.assertIsNone(provider.stop_exam_attempt(None, None))
+        self.assertIsNone(provider.mark_erroneous_exam_attempt(None, None))
         self.assertIsNone(provider.on_review_callback(None, None))
         self.assertIsNone(provider.on_exam_saved(None))
 
@@ -212,6 +241,8 @@ class BackendChooserTests(TestCase):
         """
         backend = get_backend_provider({'backend': 'null'})
         self.assertIsInstance(backend, NullBackendProvider)
+        backend = get_backend_provider(name='test')
+        self.assertIsInstance(backend, TestBackendProvider)
 
     def test_backend_choices(self):
         """

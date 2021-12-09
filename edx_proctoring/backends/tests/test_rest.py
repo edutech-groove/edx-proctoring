@@ -3,6 +3,7 @@ Tests for the REST backend
 """
 import json
 
+import ddt
 import jwt
 
 import responses
@@ -10,11 +11,13 @@ from mock import patch
 
 from django.test import TestCase
 from django.utils import translation
+from django.contrib.auth.models import User
 
 from edx_proctoring.backends.rest import BaseRestProctoringProvider
 from edx_proctoring.exceptions import BackendProviderCannotRegisterAttempt
 
 
+@ddt.ddt
 class RESTBackendTests(TestCase):
     """
     Tests for the REST backend
@@ -196,31 +199,27 @@ class RESTBackendTests(TestCase):
         with self.assertRaises(BackendProviderCannotRegisterAttempt):
             self.provider.register_exam_attempt(self.backend_exam, context)
 
+    @ddt.data(
+        ['start_exam_attempt', 'start'],
+        ['stop_exam_attempt', 'stop'],
+        ['mark_erroneous_exam_attempt', 'error'],
+    )
+    @ddt.unpack
     @responses.activate
-    def test_start_exam_attempt(self):
+    def test_update_exam_attempt_status(self, provider_method_name, corresponding_status):
         attempt_id = 2
         responses.add(
             responses.PATCH,
             url=self.provider.exam_attempt_url.format(exam_id=self.backend_exam['external_id'], attempt_id=attempt_id),
-            json={'id': 2, 'status': 'start'}
+            json={'id': 2, 'status': corresponding_status}
         )
-        status = self.provider.start_exam_attempt(self.backend_exam['external_id'], attempt_id)
-        self.assertEqual(status, 'start')
+        status = getattr(self.provider, provider_method_name)(self.backend_exam['external_id'], attempt_id)
+        self.assertEqual(status, corresponding_status)
 
-    @responses.activate
-    def test_stop_exam_attempt(self):
-        attempt_id = 2
-        responses.add(
-            responses.PATCH,
-            url=self.provider.exam_attempt_url.format(exam_id=self.backend_exam['external_id'], attempt_id=attempt_id),
-            json={'id': 2, 'status': 'stop'}
-        )
-        status = self.provider.stop_exam_attempt(self.backend_exam['external_id'], attempt_id)
-        self.assertEqual(status, 'stop')
-
-    @responses.activate
     def test_on_review_callback(self):
-        # on_review_callback should just return the payload
+        """
+        on_review_callback should just return the payload when called without review author
+        """
         attempt = {
             'id': 1,
             'external_id': 'abcd',
@@ -229,11 +228,47 @@ class RESTBackendTests(TestCase):
         payload = {
             'status': 'verified',
             'comments': [
-                {'comment': 'something happend', 'status': 'ok'}
+                {'comment': 'something happened', 'status': 'ok'}
             ]
         }
         new_payload = self.provider.on_review_callback(attempt, payload)
         self.assertEqual(payload, new_payload)
+
+    def test_on_review_callback_with_reviewer(self):
+        """
+        on_review_callback should find a user if an email is provided
+        """
+        person = User(
+            username='tester',
+            email='someone@example.com'
+        )
+        person.save()
+        attempt = {
+            'id': 1,
+            'external_id': 'abcd',
+            'user': 1
+        }
+
+        def payload_with_email(email):
+            """
+            generic payload with variable email
+            """
+            return {
+                'status': 'verified',
+                'comments': [
+                    {'comment': 'something happened', 'status': 'ok'},
+                ],
+                'reviewed_by': email,
+            }
+
+        payload = payload_with_email('someone@example.com')
+        new_payload = self.provider.on_review_callback(attempt, payload)
+        self.assertEqual(new_payload['reviewed_by'], person)
+
+        payload = payload_with_email('nonexistent+person@example.com')
+        new_payload = self.provider.on_review_callback(attempt, payload)
+
+        self.assertEqual(new_payload['reviewed_by'], None)
 
     def test_get_javascript(self):
         self.assertEqual(self.provider.get_javascript(), '')
@@ -290,3 +325,18 @@ class RESTBackendTests(TestCase):
         self.assertEqual(decoded['course_id'], course_id)
         self.assertEqual(decoded['exam_id'], exam_id)
         self.assertEqual(decoded['attempt_id'], attempt_id)
+
+        # test that correct URL is returned for a request with parameter "show_configuration_dashboard=true"
+        config_url = self.provider.get_instructor_url(
+            course_id,
+            user,
+            exam_id=exam_id,
+            show_configuration_dashboard=True,
+        )
+        token = config_url.split('jwt=')[1]
+        decoded = jwt.decode(token,
+                             issuer=self.provider.client_id,
+                             key=self.provider.client_secret,
+                             algorithms=['HS256'])
+        self.assertTrue(decoded['config'])
+        self.assertEqual(decoded['exam_id'], exam_id)

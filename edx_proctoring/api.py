@@ -7,7 +7,6 @@ API which is in the views.py file, per edX coding standards
 from __future__ import absolute_import
 
 from datetime import datetime, timedelta
-import hashlib
 import logging
 import uuid
 import pytz
@@ -16,8 +15,6 @@ import six
 from django.utils.translation import ugettext as _, ugettext_noop
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.dispatch import receiver
-from django.db.models.signals import post_save
 from django.template import loader
 from django.urls import reverse, NoReverseMatch
 from django.core.mail.message import EmailMessage
@@ -52,7 +49,8 @@ from edx_proctoring.statuses import ProctoredExamStudentAttemptStatus
 
 from edx_proctoring.utils import (
     humanized_time,
-    emit_event
+    emit_event,
+    obscured_user_id,
 )
 
 from edx_proctoring.backends import get_backend_provider
@@ -201,30 +199,6 @@ def remove_review_policy(exam_id):
     exam_review_policy.delete()
 
 
-@receiver(post_save, sender=ProctoredExamReviewPolicy)
-@receiver(post_save, sender=ProctoredExam)
-def _save_exam_on_backend(sender, instance, **kwargs):  # pylint: disable=unused-argument
-    """
-    Save the exam to the backend provider when our model changes.
-    It also combines the review policy into the exam when saving to the backend
-    """
-    if sender == ProctoredExam:
-        exam_obj = instance
-        review_policy = ProctoredExamReviewPolicy.get_review_policy_for_exam(instance.id)
-    else:
-        exam_obj = instance.proctored_exam
-        review_policy = instance
-    if exam_obj.is_proctored:
-        exam = ProctoredExamSerializer(exam_obj).data
-        if review_policy:
-            exam['rule_summary'] = review_policy.review_policy
-        backend = get_backend_provider(exam)
-        external_id = backend.on_exam_saved(exam)
-        if external_id and external_id != exam_obj.external_id:
-            exam_obj.external_id = external_id
-            exam_obj.save()
-
-
 def get_review_policy_by_exam_id(exam_id):
     """
     Looks up exam by the Primary Key. Raises exception if not found.
@@ -357,7 +331,7 @@ def get_exam_by_content_id(course_id, content_id):
     proctored_exam = ProctoredExam.get_exam_by_content_id(course_id, content_id)
     if proctored_exam is None:
         log.exception(
-            'Cannot find the proctored exams in this course %s with content_id: %s',
+            'Cannot find the proctored exam in this course %s with content_id: %s',
             course_id, content_id
         )
         raise ProctoredExamNotFoundException
@@ -626,7 +600,7 @@ def create_exam_attempt(exam_id, user_id, taking_as_proctored=False):
         scheme = 'https' if getattr(settings, 'HTTPS', 'on') == 'on' else 'http'
         lms_host = '{scheme}://{hostname}'.format(scheme=scheme, hostname=settings.SITE_NAME)
 
-        obs_user_id = hashlib.sha1((u'%s%s' % (exam['course_id'], user_id)).encode('ascii')).hexdigest()
+        obs_user_id = obscured_user_id(user_id, exam['backend'])
 
         # get the name of the user, if the service is available
         full_name = None
@@ -1060,11 +1034,16 @@ def update_attempt_status(exam_id, user_id, to_status,
     if backend:
         # only proctored exams have a backend
         # timed exams have no backend
+        backend_method = None
         if to_status == ProctoredExamStudentAttemptStatus.started:
-            backend.start_exam_attempt(exam['external_id'], attempt['external_id'])
-        if to_status == ProctoredExamStudentAttemptStatus.submitted:
-            backend.stop_exam_attempt(exam['external_id'], attempt['external_id'])
-    # we user the 'status' field as the name of the event 'verb'
+            backend_method = backend.start_exam_attempt
+        elif to_status == ProctoredExamStudentAttemptStatus.submitted:
+            backend_method = backend.stop_exam_attempt
+        elif to_status == ProctoredExamStudentAttemptStatus.error:
+            backend_method = backend.mark_erroneous_exam_attempt
+        if backend_method:
+            backend_method(exam['external_id'], attempt['external_id'])
+    # we use the 'status' field as the name of the event 'verb'
     emit_event(exam, attempt['status'], attempt=attempt)
 
     return attempt['id']
@@ -1547,9 +1526,12 @@ def get_attempt_status_summary(user_id, course_id, content_id):
 
     try:
         exam = get_exam_by_content_id(course_id, content_id)
-    except ProctoredExamNotFoundException as ex:
+    except ProctoredExamNotFoundException:
         # this really shouldn't happen, but log it at least
-        log.exception(ex)
+        log.exception(
+            'Cannot find the proctored exam in this course %s with content_id: %s',
+            course_id, content_id
+        )
         return None
 
     # check if the exam is not proctored
@@ -1637,7 +1619,7 @@ def _get_timed_exam_view(exam, context, exam_id, user_id, course_id):
     elif attempt_status == ProctoredExamStudentAttemptStatus.submitted:
         # If we are not hiding the exam after the due_date has passed,
         # check if the exam's due_date has passed. If so, return None
-        # so that the user can see his exam answers in read only mode.
+        # so that the user can see their exam answers in read only mode.
         if not exam['hide_after_due'] and has_due_date_passed(exam['due_date']):
             return None
 
@@ -1689,6 +1671,7 @@ def _get_timed_exam_view(exam, context, exam_id, user_id, course_id):
                 'edx_proctoring:proctored_exam.attempt',
                 args=[attempt['id']]
             ) if attempt else '',
+            'course_id': course_id,
         })
         return template.render(context)
 
@@ -1732,7 +1715,9 @@ def _get_proctored_exam_context(exam, attempt, user_id, course_id, is_practice_e
     except NoReverseMatch:
         log.exception("Can't find progress url for course %s", course_id)
 
-    return {
+    provider = get_backend_provider(exam)
+
+    context = {
         'platform_name': settings.PLATFORM_NAME,
         'total_time': total_time,
         'exam_id': exam['id'],
@@ -1757,7 +1742,24 @@ def _get_proctored_exam_context(exam, attempt, user_id, course_id, is_practice_e
         'link_urls': settings.PROCTORING_SETTINGS.get('LINK_URLS', {}),
         'tech_support_email': settings.TECH_SUPPORT_EMAIL,
         'exam_review_policy': _get_review_policy_by_exam_id(exam['id']),
+        'backend_js_bundle': provider.get_javascript(),
+        'provider_tech_support_email': provider.tech_support_email,
+        'provider_tech_support_phone': provider.tech_support_phone,
+        'provider_name': provider.verbose_name,
     }
+    if attempt:
+        context['exam_code'] = attempt['attempt_code']
+        if attempt['status'] in (ProctoredExamStudentAttemptStatus.created,
+                                 ProctoredExamStudentAttemptStatus.download_software_clicked):
+            # since this may make an http request, let's not include it on every page
+            provider_attempt = provider.get_attempt(attempt)
+            download_url = provider_attempt.get('download_url', None) or provider.get_software_download_url()
+
+            context.update({
+                'backend_instructions': provider_attempt.get('instructions', None),
+                'software_download_url': download_url,
+            })
+    return context
 
 
 def _get_practice_exam_view(exam, context, exam_id, user_id, course_id):
@@ -1769,7 +1771,6 @@ def _get_practice_exam_view(exam, context, exam_id, user_id, course_id):
     attempt = get_exam_attempt(exam_id, user_id)
 
     attempt_status = attempt['status'] if attempt else None
-    provider = get_backend_provider(exam)
 
     if not attempt_status:
         student_view_template = 'practice_exam/entrance.html'
@@ -1778,13 +1779,7 @@ def _get_practice_exam_view(exam, context, exam_id, user_id, course_id):
         return None
     elif attempt_status in [ProctoredExamStudentAttemptStatus.created,
                             ProctoredExamStudentAttemptStatus.download_software_clicked]:
-        provider_attempt = provider.get_attempt(attempt)
         student_view_template = 'proctored_exam/instructions.html'
-        context.update({
-            'exam_code': attempt['attempt_code'],
-            'backend_instructions': provider_attempt.get('instructions', None),
-            'software_download_url': provider_attempt.get('download_url', None) or provider.get_software_download_url(),
-        })
     elif attempt_status == ProctoredExamStudentAttemptStatus.ready_to_start:
         student_view_template = 'proctored_exam/ready_to_start.html'
     elif attempt_status == ProctoredExamStudentAttemptStatus.error:
@@ -1795,7 +1790,6 @@ def _get_practice_exam_view(exam, context, exam_id, user_id, course_id):
         student_view_template = 'proctored_exam/ready_to_submit.html'
 
     if student_view_template:
-        context['backend_js_bundle'] = provider.get_javascript()
         template = loader.get_template(student_view_template)
         context.update(_get_proctored_exam_context(exam, attempt, user_id, course_id, is_practice_exam=True))
         return template.render(context)
@@ -1830,8 +1824,6 @@ def _get_proctored_exam_view(exam, context, exam_id, user_id, course_id):
     # proctored exam, a quick exit....
     if attempt_status == ProctoredExamStudentAttemptStatus.declined:
         return None
-
-    provider = get_backend_provider(exam)
 
     if not attempt_status:
         # student has not started an attempt
@@ -1903,14 +1895,7 @@ def _get_proctored_exam_view(exam, context, exam_id, user_id, course_id):
             # if the user has not id verified yet, show them the page that requires them to do so
             student_view_template = 'proctored_exam/id_verification.html'
         else:
-            provider_attempt = provider.get_attempt(attempt)
             student_view_template = 'proctored_exam/instructions.html'
-            download_url = provider_attempt.get('download_url', None) or provider.get_software_download_url()
-            context.update({
-                'exam_code': attempt['attempt_code'],
-                'backend_instructions': provider_attempt.get('instructions', None),
-                'software_download_url': download_url
-            })
     elif attempt_status == ProctoredExamStudentAttemptStatus.ready_to_start:
         student_view_template = 'proctored_exam/ready_to_start.html'
     elif attempt_status == ProctoredExamStudentAttemptStatus.error:
@@ -1943,7 +1928,6 @@ def _get_proctored_exam_view(exam, context, exam_id, user_id, course_id):
         student_view_template = 'proctored_exam/ready_to_submit.html'
 
     if student_view_template:
-        context['backend_js_bundle'] = provider.get_javascript()
         template = loader.get_template(student_view_template)
         context.update(_get_proctored_exam_context(exam, attempt, user_id, course_id))
         return template.render(context)
@@ -2064,3 +2048,41 @@ def get_exam_violation_report(course_id, include_practice_exams=False):
                 attempts_by_code[attempt_code][comments_key].append(comment.comment)
 
     return sorted(attempts_by_code.values(), key=lambda a: a['exam_name'])
+
+
+def is_backend_dashboard_available(course_id):
+    """
+    Returns whether the backend for this course supports the instructor dashboard feature
+    """
+    exams = ProctoredExam.get_all_exams_for_course(
+        course_id,
+        active_only=True
+    )
+    for exam in exams:
+        if get_backend_provider(name=exam.backend).has_dashboard:
+            return True
+    return False
+
+
+def get_exam_configuration_dashboard_url(course_id, content_id):
+    """
+    Returns the exam configuration dashboard URL, if the exam exists and the backend
+    has an exam configuration dashboard. Otherwise, returns None.
+    """
+    try:
+        exam = get_exam_by_content_id(course_id, content_id)
+    except ProctoredExamNotFoundException:
+        log.exception(
+            'Cannot find the proctored exam in this course %s with content_id: %s',
+            course_id, content_id
+        )
+        return None
+
+    if is_backend_dashboard_available(course_id):
+        return '{}?config=true'.format(
+            reverse(
+                'edx_proctoring:instructor_dashboard_exam', args=(course_id, exam['id'])
+            )
+        )
+
+    return None

@@ -11,9 +11,11 @@ import jwt
 from webpack_loader.utils import get_files
 from webpack_loader.exceptions import BaseWebpackLoaderException, WebpackBundleLookupError
 
+from django.contrib.auth.models import User
+
 from edx_proctoring.backends.backend import ProctoringBackendProvider
 from edx_proctoring.exceptions import BackendProviderCannotRegisterAttempt
-from edx_proctoring.statuses import ProctoredExamStudentAttemptStatus
+from edx_proctoring.statuses import ProctoredExamStudentAttemptStatus, SoftwareSecureReviewStatus
 from edx_rest_api_client.client import OAuthAPIClient
 
 log = logging.getLogger(__name__)
@@ -28,6 +30,8 @@ class BaseRestProctoringProvider(ProctoringBackendProvider):
     base_url = None
     token_expiration_time = 60
     needs_oauth = True
+    has_dashboard = True
+    passing_statuses = (SoftwareSecureReviewStatus.clean,)
 
     @property
     def exam_attempt_url(self):
@@ -82,7 +86,8 @@ class BaseRestProctoringProvider(ProctoringBackendProvider):
         """
         Returns the url of the javascript bundle into which the provider's JS will be loaded
         """
-        package = self.__class__.__module__.split('.')[0]
+        # use the defined npm_module name, or else the python package name
+        package = getattr(self, 'npm_module', self.__class__.__module__.split('.')[0])
         js_url = ''
         try:
             bundle_chunks = get_files(package, config="WORKERS")
@@ -191,11 +196,28 @@ class BaseRestProctoringProvider(ProctoringBackendProvider):
             method='PATCH')
         return response.get('status')
 
+    def mark_erroneous_exam_attempt(self, exam, attempt):
+        """
+        Method that is responsible for communicating with the backend provider
+        to mark an unfinished exam to be in error
+        """
+        response = self._make_attempt_request(
+            exam,
+            attempt,
+            status=ProctoredExamStudentAttemptStatus.error,
+            method='PATCH')
+        return response.get('status')
+
     def on_review_callback(self, attempt, payload):
         """
         Called when the reviewing 3rd party service posts back the results
         """
         # REST backends should convert the payload into the expected data structure
+        if payload.get('reviewed_by', False):
+            try:
+                payload['reviewed_by'] = User.objects.get(email=payload['reviewed_by'])
+            except User.DoesNotExist:
+                payload['reviewed_by'] = None
         return payload
 
     def on_exam_saved(self, exam):
@@ -222,7 +244,7 @@ class BaseRestProctoringProvider(ProctoringBackendProvider):
             data = {}
         return data.get('id')
 
-    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None):
+    def get_instructor_url(self, course_id, user, exam_id=None, attempt_id=None, show_configuration_dashboard=False):
         """
         Return a URL to the instructor dashboard
         course_id: str
@@ -240,10 +262,13 @@ class BaseRestProctoringProvider(ProctoringBackendProvider):
         }
         if exam_id:
             token['exam_id'] = exam_id
+            if show_configuration_dashboard:
+                token['config'] = True
             if attempt_id:
                 token['attempt_id'] = attempt_id
         encoded = jwt.encode(token, self.client_secret)
         url = self.instructor_url.format(client_id=self.client_id, jwt=encoded)
+
         log.debug('Created instructor url for %r %r %r', course_id, exam_id, attempt_id)
         return url
 

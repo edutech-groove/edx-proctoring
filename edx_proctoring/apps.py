@@ -64,7 +64,12 @@ class EdxProctoringConfig(AppConfig):
                 u'namespace': u'edx_proctoring',
                 u'regex': u'^api/',
                 u'relative_path': u'urls',
-            }
+            },
+            u'cms.djangoapp': {
+                u'namespace': u'edx_proctoring',
+                u'regex': u'^api/',
+                u'relative_path': u'instructor_dashboard_exam_urls',
+            },
         },
         u'settings_config': {
             u'lms.djangoapp': {
@@ -109,18 +114,15 @@ class EdxProctoringConfig(AppConfig):
         """
         Loads the available proctoring backends
         """
+        from edx_proctoring import signals  # pylint: disable=unused-variable
         config = settings.PROCTORING_BACKENDS
 
         self.backends = {}  # pylint: disable=W0201
-        not_found = []
         for extension in ExtensionManager(namespace='openedx.proctoring'):
             name = extension.name
             try:
                 options = config[name]
                 self.backends[name] = extension.plugin(**options)
             except KeyError:
-                not_found.append(name)
-        if not_found:  # pragma: no branch
-            warnings.warn("No proctoring backend configured for '{}'.  "
-                          "Available: {}".format(not_found, list(self.backends)))
+                pass
         make_worker_config(self.backends.values(), out=os.path.join(settings.ENV_ROOT, 'workers.json'))
