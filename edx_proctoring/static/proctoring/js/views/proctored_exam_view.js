@@ -178,7 +178,7 @@ var edx = edx || {};
                 self.$el.find('.timer-announce').html(self.accessibility_time_string);
             }
 
-            self.$el.find('span#time_remaining_id b').html(self.model.getFormattedRemainingTime(self.secondsLeft));
+            self.$el.find('span#time_remaining_id span').html(self.model.getFormattedRemainingTime(self.secondsLeft));
             if (self.secondsLeft <= -self.grace_period_secs) {
                 clearInterval(self.timerId); // stop the timer once the time finishes.
                 $(window).unbind('beforeunload', this.unloadMessage);
@@ -202,16 +202,19 @@ var edx = edx || {};
       },
         toggleTimerVisibility: function (event) {
             var button = $(event.currentTarget);
-            var icon = button.find('i');
-            var timer = this.$el.find('span#time_remaining_id b');
+            var viewIcon = button.find('svg.view-icon');
+            var unviewIcon = button.find('svg.unview-icon');
+            var timer = this.$el.find('span#time_remaining_id span');
             if (timer.hasClass('timer-hidden')) {
                 timer.removeClass('timer-hidden');
                 button.attr('aria-pressed', 'false');
-                icon.removeClass('fa-eye').addClass('fa-eye-slash');
+                viewIcon.hide();
+                unviewIcon.show();
             } else {
                 timer.addClass('timer-hidden');
                 button.attr('aria-pressed', 'true');
-                icon.removeClass('fa-eye-slash').addClass('fa-eye');
+                viewIcon.show();
+                unviewIcon.hide();
             }
             event.stopPropagation();
             event.preventDefault();

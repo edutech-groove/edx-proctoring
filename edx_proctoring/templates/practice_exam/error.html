@@ -20,10 +20,7 @@
   </p>
   <hr>
   <button class="gated-sequence start-timed-exam action-primary" data-ajax-url="{{enter_exam_endpoint}}" data-exam-id="{{exam_id}}" data-attempt-proctored=true data-start-immediately=false>
-    <span class="icon fa fa-lock" aria-hidden="true"></span>
-    <a>
-      {% trans "Try this practice exam again" %}
-    </a>
+    {% trans "Try this practice exam again" %}
   </button>
 </div>
 {% include 'proctored_exam/footer.html' %}

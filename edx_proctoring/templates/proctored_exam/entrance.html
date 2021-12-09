@@ -11,15 +11,16 @@
 
     {% endblocktrans %}
   </p>
-  <button class="gated-sequence start-timed-exam action-primary" data-ajax-url="{{enter_exam_endpoint}}" data-exam-id="{{exam_id}}" data-attempt-proctored=true data-start-immediately=false>
-    {% trans "Continue to my proctored exam." %}
-    <span class="icon fa fa-arrow-circle-right" aria-hidden="true"></span>
-    <p>
-      {% blocktrans %}
-        You will be guided through steps to set up online proctoring software and verify your identity.</br>
-      {% endblocktrans %}
-    </p>
-  </button>
+  <div class="actions">
+    <button class="gated-sequence start-timed-exam action-primary" data-ajax-url="{{enter_exam_endpoint}}" data-exam-id="{{exam_id}}" data-attempt-proctored=true data-start-immediately=false>
+      {% trans "Continue to my proctored exam." %}
+    </button>
+  </div>
+  <p>
+    {% blocktrans %}
+      You will be guided through steps to set up online proctoring software and to perform various checks.</br>
+    {% endblocktrans %}
+  </p>
 
   {% if allow_proctoring_opt_out %}
     {% include 'proctored_exam/proctoring_opt_out_button.html' %}
