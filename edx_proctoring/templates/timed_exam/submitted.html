@@ -13,11 +13,12 @@
     {% endif %}
 
   </h3>
-  <p>
-    {% if will_be_revealed %}
+  
+  {% if will_be_revealed %}
+    <p>
       {% blocktrans %}
         After the due date has passed, you can review the exam, but you cannot change your answers.
       {% endblocktrans %}
-    {% endif %}
-  </p>
+    </p>
+  {% endif %}
 </div>
