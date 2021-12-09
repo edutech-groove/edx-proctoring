@@ -53,12 +53,12 @@ var edx = edx || {};
             'click #toggle_timer': 'toggleTimerVisibility'
         },
         detectScroll: function(event) {
-            if ($(event.currentTarget).scrollTop() > this.timerBarTopPosition) {
-                $(".proctored_exam_status").addClass('is-fixed');
+            if ($(event.currentTarget).scrollTop() > this.$el.position().top) {
+                $(".proctored_exam_status .exam-timer").addClass('is-fixed');
                 $(".wrapper-course-material").css('margin-top', this.courseNavBarMarginTop + 'px');
             }
             else {
-                $(".proctored_exam_status").removeClass('is-fixed');
+                $(".proctored_exam_status .exam-timer").removeClass('is-fixed');
                 $(".wrapper-course-material").css('margin-top', '0');
             }
 
